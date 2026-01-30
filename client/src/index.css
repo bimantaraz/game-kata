@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap');
+
+@theme {
+  --font-outfit: 'Outfit', sans-serif;
+}
+
+:root {
+  font-family: var(--font-outfit);
+  background-color: #0f172a;
+  /* bg-slate-900 */
+  color: #fff;
+}
+
+/* Custom scrollbar for modern feel */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background-color: #1e293b;
+  /* bg-slate-800 */
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #6366f1;
+  /* bg-indigo-500 */
+  border-radius: 9999px;
+}
