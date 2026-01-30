@@ -2,7 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
-const { validateWord } = require('./gemini');
+const { validateWord } = require('./groq');
 require('dotenv').config();
 
 const app = express();
@@ -55,7 +55,10 @@ io.on('connection', (socket) => {
             letters: { start: null, end: null },
             status: 'waiting',
             winner: null,
-            category: category
+            category: category,
+            skipVotes: new Set(),
+            scores: { [socket.id]: 0 }, // Will add p2 when they join
+            streaks: { [socket.id]: 0 }
         });
 
         socket.join(roomId);
@@ -71,6 +74,8 @@ io.on('connection', (socket) => {
         if (room && room.status === 'waiting' && room.players.length < 2) {
             room.players.push(socket.id);
             room.playerNames[socket.id] = name;
+            room.scores[socket.id] = 0;
+            room.streaks[socket.id] = 0;
             room.status = 'picking';
 
             socket.join(roomId);
@@ -118,7 +123,8 @@ io.on('connection', (socket) => {
                 letters: { start: null, end: null },
                 status: 'waiting',
                 winner: null,
-                category: category
+                category: category,
+                skipVotes: new Set()
             });
             socket.join(roomId);
             playerRooms.set(socket.id, roomId);
@@ -148,21 +154,25 @@ io.on('connection', (socket) => {
         const roomId = playerRooms.get(socket.id);
         if (!roomId) return;
         const room = rooms.get(roomId);
+        if (!room) return;
 
-        if (type === 'start') room.letters.start = letter;
-        if (type === 'end') room.letters.end = letter;
+        // Save the letter
+        room.letters[type] = letter;
 
-        io.to(roomId).emit('letter_picked', { type, letter });
+        // 1. Tell the player who picked: "You picked X"
+        socket.emit('letter_picked', { type, letter });
 
+        // 2. Tell the opponent: "Opponent has picked!" (Hide the actual letter)
+        socket.to(roomId).emit('opponent_picked', { type });
+
+        // 3. Check if both are ready
         if (room.letters.start && room.letters.end) {
             room.status = 'playing';
-            // Small delay to ensure UI updates
-            setTimeout(() => {
-                io.to(roomId).emit('race_start', {
-                    start: room.letters.start,
-                    end: room.letters.end
-                });
-            }, 1000);
+            // Reveal BOTH letters to everyone
+            io.to(roomId).emit('race_start', {
+                start: room.letters.start,
+                end: room.letters.end
+            });
             broadcastRooms(); // Status changed to playing
         }
     });
@@ -189,10 +199,27 @@ io.on('connection', (socket) => {
         if (validation.isValid) {
             room.status = 'finished';
             room.winner = room.playerNames[socket.id];
-            io.to(roomId).emit('game_over', {
+
+            // Score & Streak Logic
+            const winnerId = socket.id;
+            const loserId = room.players.find(id => id !== winnerId);
+
+            // Update Streak
+            room.streaks[winnerId] = (room.streaks[winnerId] || 0) + 1;
+            room.streaks[loserId] = 0;
+
+            // Update Score (Base + Bonus)
+            let points = 1;
+            if (room.streaks[winnerId] >= 3) points += 1; // Bonus for hot streak
+            room.scores[winnerId] = (room.scores[winnerId] || 0) + points;
+
+            io.to(roomId).emit('round_over', {
                 winner: room.playerNames[socket.id],
                 word: word,
-                reason: validation.reason || "Valid word!"
+                reason: validation.reason || "Valid word!",
+                scores: room.scores,
+                streaks: room.streaks,
+                pointsEarned: points
             });
             broadcastRooms(); // Status changed
         } else {
@@ -200,30 +227,64 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('request_rematch', () => {
+    socket.on('request_next_round', () => {
         const roomId = playerRooms.get(socket.id);
         if (!roomId) return;
         const room = rooms.get(roomId);
 
-        // Ideally both need to agree, but for MVP, first click resets
-        // Reset state
+        // Ideally both need to agree, but for MVP, first click initiates
         room.letters = { start: null, end: null };
         room.status = 'picking';
         room.winner = null;
+        room.skipVotes.clear(); // Clear any stale skips
 
-        // Swap roles for variety? Let's keep it simple or random
+        // Swap roles for variety
         const p1 = room.players[0];
         const p2 = room.players[1];
 
-        io.to(roomId).emit('rematch_started', {
+        io.to(roomId).emit('next_round_started', {
             roomId: roomId,
             players: room.playerNames,
             pickerRoles: {
                 start: p2, // Swap picker roles
                 end: p1
-            }
+            },
+            scores: room.scores, // Re-broadcast state just in case
+            streaks: room.streaks
         });
-        broadcastRooms(); // Status back to picking
+        broadcastRooms();
+    });
+
+    socket.on('vote_skip', () => {
+        const roomId = playerRooms.get(socket.id);
+        if (!roomId) return;
+        const room = rooms.get(roomId);
+        if (room.status !== 'playing') return;
+
+        room.skipVotes.add(socket.id);
+
+        io.to(roomId).emit('skip_update', {
+            votes: room.skipVotes.size,
+            needed: 2,
+            voter: socket.id
+        });
+
+        if (room.skipVotes.size >= 2) {
+            // Reset for next round
+            room.letters = { start: null, end: null };
+            room.status = 'picking';
+            room.skipVotes.clear();
+            room.winner = null;
+
+            // Swap roles logic
+            const p1 = room.players[0];
+            const p2 = room.players[1];
+
+            io.to(roomId).emit('round_skipped', {
+                pickerRoles: { start: p2, end: p1 }
+            });
+            broadcastRooms();
+        }
     });
 
     socket.on('disconnect', () => {

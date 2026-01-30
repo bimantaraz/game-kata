@@ -27,7 +27,7 @@ async function validateWord(word, startLetter, endLetter, category = "General") 
       Respond ONLY with this JSON structure:
       {
         "isValid": boolean,
-        "reason": "Short explanation (e.g. 'Valid Indonesian word for Fruit', or 'OOOQ is nonsense')"
+        "reason": "Short explanation IN INDONESIAN (Contoh: 'Kata APEL adalah buah yang valid', atau 'OOOQ tidak memiliki arti')"
       }
     `;
 

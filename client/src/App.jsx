@@ -105,7 +105,7 @@ function App() {
         </div>
       )}
 
-      <div className="w-full max-w-4xl relative z-10">
+      <div className="w-full max-w-7xl relative z-10">
         <AnimatePresence mode='wait'>
           {gameState === 'LOBBY' && (
             <motion.div
