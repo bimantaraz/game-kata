@@ -7,7 +7,21 @@ import GameRoom from './components/GameRoom';
 
 // Connect to backend
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || (window.location.hostname === 'localhost' ? 'http://localhost:3001' : '/');
-const socket = io(SERVER_URL);
+
+// Session ID logic
+const getSessionId = () => {
+  let id = localStorage.getItem('sessionId');
+  if (!id) {
+    id = Math.random().toString(36).substring(2) + Date.now().toString(36);
+    localStorage.setItem('sessionId', id);
+  }
+  return id;
+};
+const sessionId = getSessionId();
+
+const socket = io(SERVER_URL, {
+  auth: { sessionId }
+});
 
 function App() {
   const [gameState, setGameState] = useState('LOBBY'); // LOBBY, WAITING, PLAYING
@@ -21,16 +35,22 @@ function App() {
     socket.on('connect', () => {
       console.log('Connected to server');
       setIsConnected(true);
-      // If server restarted, any existing game state is invalid. Reset to Lobby.
-      setGameState(prev => {
-        if (prev !== 'LOBBY') {
-          toast("Server reset. Returning to Lobby.", { icon: '🔄' });
-          return 'LOBBY';
-        }
-        return prev;
-      });
-      setRoomId(null);
-      setRoomData(null);
+      // We don't reset to LOBBY here anymore because we might be reconnecting to a session
+    });
+
+    socket.on('reconnect_success', ({ roomId, roomData }) => {
+      console.log('Session restored:', roomId);
+      setIsConnected(true);
+      setRoomId(roomId);
+      setRoomData(roomData);
+      setPlayerName(roomData.players[sessionId]); // Restore my name
+      // Map server status to app state
+      if (roomData.status === 'waiting') {
+        setGameState('WAITING');
+      } else {
+        setGameState('PLAYING');
+      }
+      toast.success('Reconnected to game!', { icon: '🔄' });
     });
 
     socket.on('disconnect', () => {
@@ -64,6 +84,7 @@ function App() {
 
     return () => {
       socket.off('connect');
+      socket.off('reconnect_success');
       socket.off('rooms_update');
       socket.off('joined_room');
       socket.off('game_start');
@@ -147,6 +168,7 @@ function App() {
                 socket={socket}
                 roomId={roomId}
                 playerName={playerName}
+                sessionId={sessionId}
                 initialData={roomData}
               />
             </motion.div>

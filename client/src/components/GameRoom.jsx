@@ -21,9 +21,21 @@ const PaperPlaneIcon = () => (
     </svg>
 );
 
-export default function GameRoom({ socket, roomId, playerName, initialData }) {
-    const [gameStatus, setGameStatus] = useState('picking'); // picking, playing, finished
-    const [letters, setLetters] = useState({ start: null, end: null });
+const TrophyIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 48 48" className="inline-block drop-shadow-xl">
+        <radialGradient id="grad1" cx="23.943" cy="18.921" r="22.765" gradientUnits="userSpaceOnUse"><stop offset=".655" stopColor="#871233"></stop><stop offset=".718" stopColor="#8e1336"></stop><stop offset=".812" stopColor="#a3163e"></stop><stop offset=".9" stopColor="#bc1948"></stop></radialGradient><path fill="url(#grad1)" d="M34,27.765H14v18.234c0,0.777,0.848,1.257,1.514,0.857L24,41.765l8.486,5.091	c0.667,0.4,1.514-0.08,1.514-0.857V27.765z"></path><linearGradient id="grad2" x1="14.849" x2="33.078" y1="3.094" y2="34.778" gradientUnits="userSpaceOnUse"><stop offset="0" stopColor="#ffda1c"></stop><stop offset="1" stopColor="#feb705"></stop></linearGradient><path fill="url(#grad2)" d="M41.035,17.294l-1.258-0.756c-0.536-0.322-0.898-0.851-1.062-1.454	c-0.004-0.011-0.005-0.022-0.009-0.034c-0.167-0.608-0.117-1.256,0.189-1.807l0.713-1.283c0.729-1.312-0.203-2.929-1.705-2.954	L36.422,8.98c-0.628-0.011-1.21-0.29-1.652-0.733c-0.005-0.005-0.009-0.009-0.014-0.014C34.31,7.79,34.033,7.207,34.022,6.58	l-0.025-1.481c-0.025-1.501-1.642-2.434-2.954-1.705L29.76,4.107c-0.553,0.306-1.199,0.356-1.807,0.189	c-0.011-0.004-0.022-0.005-0.034-0.009c-0.603-0.164-1.132-0.526-1.454-1.062l-0.756-1.258c-0.772-1.287-2.639-1.287-3.411,0	L21.546,3.22c-0.324,0.54-0.859,0.905-1.465,1.071c-0.007,0.002-0.013,0.004-0.02,0.005c-0.614,0.169-1.265,0.119-1.822-0.191	l-1.278-0.709c-1.312-0.729-2.929,0.203-2.954,1.705L13.98,6.58c-0.011,0.626-0.29,1.21-0.733,1.652	c-0.005,0.004-0.011,0.009-0.014,0.014c-0.443,0.445-1.026,0.722-1.652,0.733l-1.481,0.025c-1.501,0.025-2.434,1.64-1.705,2.954	l0.713,1.283c0.306,0.553,0.356,1.199,0.189,1.807c-0.005,0.011-0.007,0.023-0.011,0.034c-0.164,0.603-0.527,1.132-1.062,1.454	l-1.258,0.756c-1.287,0.772-1.287,2.639,0,3.411l1.258,0.756c0.536,0.322,0.898,0.851,1.062,1.454	c0.004,0.011,0.005,0.022,0.009,0.034c0.167,0.608,0.117,1.256-0.189,1.807l-0.713,1.283c-0.729,1.312,0.203,2.929,1.705,2.954	l1.481,0.025c0.628,0.011,1.21,0.29,1.652,0.733c0.005,0.005,0.009,0.009,0.014,0.014c0.445,0.443,0.722,1.026,0.733,1.652	l0.025,1.481c0.025,1.501,1.642,2.434,2.954,1.705l1.283-0.713c0.553-0.306,1.199-0.356,1.807-0.189	c0.011,0.004,0.023,0.005,0.034,0.009c0.603,0.164,1.132,0.526,1.454,1.062l0.756,1.258c0.772,1.287,2.639,1.287,3.411,0	l0.756-1.258c0.322-0.536,0.851-0.898,1.454-1.062c0.011-0.004,0.023-0.005,0.034-0.009c0.608-0.167,1.256-0.117,1.807,0.189	l1.283,0.713c1.312,0.729,2.929-0.203,2.954-1.705l0.025-1.481c0.011-0.628,0.29-1.21,0.733-1.652	c0.005-0.005,0.009-0.009,0.014-0.014c0.443-0.445,1.026-0.722,1.652-0.733l1.481-0.025c1.501-0.025,2.434-1.642,1.705-2.954	l-0.713-1.283c-0.306-0.553-0.356-1.199-0.189-1.807c0.004-0.011,0.005-0.022,0.009-0.034c0.164-0.603,0.526-1.132,1.062-1.454	l1.258-0.756C42.322,19.932,42.322,18.067,41.035,17.294z"></path><circle cx="24" cy="19" r="10" fill="none" stroke="#ffdf26" strokeMiterlimit="10" strokeWidth="2"></circle>
+    </svg>
+);
+
+const SkullIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 48 48" className="inline-block drop-shadow-xl">
+        <path fill="#e28b21" d="M37.5,13h-8c-3.033,0-5.5-2.468-5.5-5.5C24,6.121,25.122,5,26.5,5h14C41.878,5,43,6.121,43,7.5	C43,10.532,40.533,13,37.5,13z M26.5,7C26.224,7,26,7.225,26,7.5c0,1.93,1.57,3.5,3.5,3.5h8c1.93,0,3.5-1.57,3.5-3.5	C41,7.225,40.776,7,40.5,7H26.5z"></path><rect width="3" height="5.405" x="32" y="14.73" fill="#e28b21"></rect><path fill="#e89f25" d="M36.466,18.773L35,18h-3l-1.466,0.773C30.205,18.946,30,19.286,30,19.657v1.559h7v-1.559	C37,19.286,36.794,18.946,36.466,18.773z"></path><path fill="#e89f25" d="M33.452,15.811h0.095c3.011,0,5.452-2.441,5.452-5.452V3H28v7.358	C28,13.37,30.441,15.811,33.452,15.811z"></path><path fill="#95a2ac" d="M42,24.459v-2.23c0-1.233-0.952-2.23-2.125-2.23h-12.75C25.952,20,25,20.997,25,22.23v2.23L42,24.459	L42,24.459z"></path><path fill="#95a2ac" d="M10,33l1,4.27h14.784v-4.324L10,33z"></path><polygon fill="#d0d7db" points="42,23 42,44 11,44 11,36 25,36 25,23"></polygon><polygon fill="#f9ea4f" points="35.117,9.362 35.82,11.96 33.527,10.542 31.273,12 31.909,9.402 29.828,7.705 32.506,7.506 33.473,5 34.494,7.479 37.172,7.625"></polygon><circle cx="10" cy="12.5" r="4" fill="#ffb74d"></circle><path fill="#607d8b" d="M22.905,28.132l-2-9c-0.479-2.157-2.619-3.518-4.772-3.036c-2.157,0.479-3.516,2.615-3.037,4.772	L14.68,28H9.5c-1.012,0-1.465,0.583-2.104,1.272c-0.238,0.256-0.898,0.397-1.051,0.715C6.124,30.446,6,30.959,6,31.5v10	C6,42.881,7.119,44,8.5,44s2.5-1.119,2.5-2.5V33h8.5c0.65,0,1.237-0.254,1.682-0.661C22.535,31.454,23.276,29.804,22.905,28.132z"></path><path fill="#37474f" d="M19.96,19.39l-0.1,6.63c-0.03,1.76-1.14,3.4-2.84,3.85c-0.15,0.04-0.3,0.07-0.46,0.09l-7,1	C9.34,30.99,9.16,31,9,31c-0.56,0-1.08-0.11-1.56-0.32c-0.41-0.17-0.77-0.4-1.09-0.69c0.29-0.62,0.77-1.14,1.35-1.48l7.214-3.444	L19.96,19.39z"></path><path fill="#607d8b" d="M20,18.99V19c0,0.05,0,0.11-0.01,0.16c0,0.07-0.02,0.15-0.03,0.23c-0.01,0.05-0.03,0.1-0.04,0.16	l-2,7c-0.21,0.76-0.86,1.32-1.64,1.43l-7,1C9.19,28.99,9.09,29,9,29c-0.27,0-0.53-0.05-0.76-0.16c-0.2-0.08-0.38-0.19-0.54-0.33	c-0.36-0.29-0.61-0.73-0.68-1.23c-0.16-1.09,0.6-2.1,1.7-2.26l5.14-0.74l0.57-0.08l0.23-0.8l1.42-4.95c0.3-1.06,1.41-1.68,2.47-1.37	C19.42,17.33,20,18.13,20,18.99z"></path>
+    </svg>
+);
+
+export default function GameRoom({ socket, roomId, playerName, sessionId, initialData }) {
+    const [gameStatus, setGameStatus] = useState(initialData.status || 'picking'); // Support status from reconnect
+    const [letters, setLetters] = useState(initialData.curLetters || { start: null, end: null });
     const [pickerRoles, setPickerRoles] = useState(initialData.pickerRoles);
     const [word, setWord] = useState('');
     const [result, setResult] = useState(null); // { winner: name, word: string }
@@ -31,15 +43,34 @@ export default function GameRoom({ socket, roomId, playerName, initialData }) {
     // Track if opponent has picked their letter (blind pick)
     const [opponentPicked, setOpponentPicked] = useState({ start: false, end: false });
     const [skipData, setSkipData] = useState({ votes: 0, myVote: false });
-    const [scores, setScores] = useState({ me: 0, opponent: 0 });
-    const [streaks, setStreaks] = useState({ me: 0, opponent: 0 });
+    const [scores, setScores] = useState(initialData.scores || { [sessionId]: 0 });
+    const [streaks, setStreaks] = useState(initialData.streaks || { [sessionId]: 0 });
+    const [history, setHistory] = useState(initialData.history || []);
     const [myRole, setMyRole] = useState(null); // 'start_picker' | 'end_picker'
+    const [opponentOnline, setOpponentOnline] = useState(true);
 
     useEffect(() => {
-        // Determine my role based on socket.id
-        if (socket.id === pickerRoles.start) setMyRole('start_picker');
-        else if (socket.id === pickerRoles.end) setMyRole('end_picker');
+        // Sync state from initialData (useful for reconnects)
+        if (initialData.status) setGameStatus(initialData.status);
+        if (initialData.curLetters) setLetters(initialData.curLetters);
+        if (initialData.scores) setScores(initialData.scores);
+        if (initialData.streaks) setStreaks(initialData.streaks);
+        if (initialData.history) setHistory(initialData.history);
 
+        // Determine my role based on sessionId
+        if (sessionId === initialData.pickerRoles.start) setMyRole('start_picker');
+        else if (sessionId === initialData.pickerRoles.end) setMyRole('end_picker');
+    }, [initialData, sessionId]);
+
+    useEffect(() => {
+        // Update picker roles if they change
+        if (pickerRoles) {
+            if (sessionId === pickerRoles.start) setMyRole('start_picker');
+            else if (sessionId === pickerRoles.end) setMyRole('end_picker');
+        }
+    }, [pickerRoles, sessionId]);
+
+    useEffect(() => {
         // Listeners
         socket.on('letter_picked', ({ type, letter }) => {
             // My pick (revealed to me)
@@ -68,16 +99,12 @@ export default function GameRoom({ socket, roomId, playerName, initialData }) {
             setResult(data);
             setGameStatus('finished');
 
-            // Update local scores/streaks
-            const myScore = data.scores[socket.id] || 0;
-            const opScore = Object.entries(data.scores).find(([id]) => id !== socket.id)?.[1] || 0;
-            setScores({ me: myScore, opponent: opScore });
+            setScores(data.scores);
+            setStreaks(data.streaks);
 
-            const myStreak = data.streaks[socket.id] || 0;
-            const opStreak = Object.entries(data.streaks).find(([id]) => id !== socket.id)?.[1] || 0;
-            setStreaks({ me: myStreak, opponent: opStreak });
+            if (data.history) setHistory(data.history);
 
-            if (data.winner === playerName) {
+            if (data.winnerSessionId === sessionId) {
                 toast.success(`🎉 YOU WON! (+${data.pointsEarned})`);
             } else {
                 toast.error('💀 You lost!');
@@ -98,20 +125,16 @@ export default function GameRoom({ socket, roomId, playerName, initialData }) {
             setOpponentPicked({ start: false, end: false });
             setPickerRoles(data.pickerRoles);
 
-            // Update role
-            if (socket.id === data.pickerRoles.start) setMyRole('start_picker');
-            else if (socket.id === data.pickerRoles.end) setMyRole('end_picker');
-
             toast.success('Next Round Started!');
         });
 
         socket.on('skip_update', ({ votes, voter }) => {
-            const isMe = voter === socket.id;
+            const isMe = voter === sessionId;
             setSkipData(prev => ({
                 votes,
                 myVote: isMe ? true : prev.myVote
             }));
-            if (voter !== socket.id) toast('Opponent voted to skip!', { icon: '⏭️' });
+            if (voter !== sessionId) toast('Opponent voted to skip!', { icon: '⏭️' });
         });
 
         socket.on('round_skipped', (data) => {
@@ -123,11 +146,13 @@ export default function GameRoom({ socket, roomId, playerName, initialData }) {
             setOpponentPicked({ start: false, end: false });
             setPickerRoles(data.pickerRoles);
 
-            // Sync role
-            if (socket.id === data.pickerRoles.start) setMyRole('start_picker');
-            else if (socket.id === data.pickerRoles.end) setMyRole('end_picker');
-
             toast.success('Round SKIPPED! New letters.');
+        });
+
+        socket.on('opponent_status', ({ online }) => {
+            setOpponentOnline(online);
+            if (!online) toast('Opponent disconnected...', { icon: '🔌' });
+            else toast('Opponent reconnected!', { icon: '⚡' });
         });
 
         return () => {
@@ -139,8 +164,9 @@ export default function GameRoom({ socket, roomId, playerName, initialData }) {
             socket.off('next_round_started');
             socket.off('skip_update');
             socket.off('round_skipped');
+            socket.off('opponent_status');
         };
-    }, [socket, pickerRoles, playerName]);
+    }, [socket, sessionId]); // removed pickerRoles from deps to avoid double-triggers, logic moved to separate effect
 
     // Typing emitter
     const handleTyping = (e) => {
@@ -180,6 +206,13 @@ export default function GameRoom({ socket, roomId, playerName, initialData }) {
         socket.emit('request_next_round');
     };
 
+    const myScore = scores[sessionId] || 0;
+    const myStreak = streaks[sessionId] || 0;
+    const opponentId = Object.keys(scores).find(id => id !== sessionId);
+    const opponentScore = opponentId ? scores[opponentId] : 0;
+    const opponentStreak = opponentId ? streaks[opponentId] : 0;
+    const opponentName = Object.values(initialData.players).find(n => n !== playerName);
+
     return (
         <div className="w-full max-w-4xl mx-auto">
             {/* Category Header */}
@@ -187,6 +220,11 @@ export default function GameRoom({ socket, roomId, playerName, initialData }) {
                 <span className="inline-block px-4 py-1 rounded-full bg-indigo-500/20 border border-indigo-500/50 text-indigo-300 text-sm font-bold tracking-wider">
                     CATEGORY: {initialData.category || "General"}
                 </span>
+                {!opponentOnline && (
+                    <div className="mt-2 text-red-400 font-bold animate-pulse text-sm border border-red-500/50 bg-red-500/10 rounded px-2 py-1 inline-block ml-2">
+                        ⚠️ OPPONENT OFFLINE
+                    </div>
+                )}
             </div>
 
             {/* Top Bar: Players */}
@@ -195,22 +233,22 @@ export default function GameRoom({ socket, roomId, playerName, initialData }) {
                     <span className="text-xs text-slate-400 uppercase tracking-widest">You</span>
                     <div className="flex items-center gap-2">
                         <span className="text-xl font-bold text-white">{playerName}</span>
-                        {streaks.me > 1 && <span className="text-orange-500 font-black animate-pulse">🔥{streaks.me}x</span>}
+                        {myStreak > 1 && <span className="text-orange-500 font-black animate-pulse">🔥{myStreak}x</span>}
                     </div>
-                    <span className="text-sm font-bold text-indigo-400">{scores.me} pts</span>
+                    <span className="text-sm font-bold text-indigo-400">{myScore} Poin</span>
                 </div>
                 <div className="text-2xl font-mono text-slate-500">VS</div>
                 <div className="flex flex-col items-end">
                     <span className="text-xs text-slate-400 uppercase tracking-widest">
-                        {opponentTyping ? 'Typing...' : 'Opponent'}
+                        {opponentTyping ? 'Typing...' : (opponentOnline ? 'Opponent' : 'Offline')}
                     </span>
                     <div className="flex items-center gap-2">
-                        {streaks.opponent > 1 && <span className="text-orange-500 font-black animate-pulse">🔥{streaks.opponent}x</span>}
-                        <span className="text-xl font-bold text-indigo-300">
-                            {Object.values(initialData.players).find(n => n !== playerName)}
+                        {opponentStreak > 1 && <span className="text-orange-500 font-black animate-pulse">🔥{opponentStreak}x</span>}
+                        <span className={clsx("text-xl font-bold", opponentOnline ? "text-indigo-300" : "text-slate-500")}>
+                            {opponentName}
                         </span>
                     </div>
-                    <span className="text-sm font-bold text-slate-400">{scores.opponent} pts</span>
+                    <span className="text-sm font-bold text-slate-400">{opponentScore} Poin</span>
                 </div>
             </div>
 
@@ -260,11 +298,11 @@ export default function GameRoom({ socket, roomId, playerName, initialData }) {
                                     return (
                                         <button
                                             key={char}
-                                            disabled={!isMyTurn || isSelected}
+                                            disabled={!isMyTurn || isSelected || !opponentOnline}
                                             onClick={() => handlePick(char)}
                                             className={clsx("aspect-square rounded-lg font-bold text-lg md:text-xl transition-all touch-manipulation",
                                                 isSelected ? "bg-white text-slate-900 scale-110 shadow-[0_0_15px_rgba(255,255,255,0.5)]" :
-                                                    isMyTurn ? "bg-slate-700 hover:bg-indigo-600 text-white active:scale-95" : "bg-slate-800 text-slate-600 cursor-not-allowed"
+                                                    (isMyTurn && opponentOnline) ? "bg-slate-700 hover:bg-indigo-600 text-white active:scale-95" : "bg-slate-800 text-slate-600 cursor-not-allowed"
                                             )}
                                         >
                                             {char}
@@ -302,12 +340,14 @@ export default function GameRoom({ socket, roomId, playerName, initialData }) {
                                 type="text"
                                 value={word}
                                 onChange={handleTyping}
-                                className="w-full bg-slate-800/80 border-2 border-indigo-500/50 rounded-2xl py-4 sm:py-6 px-4 sm:px-8 text-center text-2xl sm:text-3xl md:text-5xl font-bold tracking-wider focus:outline-none focus:border-indigo-400 focus:shadow-[0_0_30px_rgba(99,102,241,0.3)] transition-all uppercase"
+                                disabled={!opponentOnline}
+                                className="w-full bg-slate-800/80 border-2 border-indigo-500/50 rounded-2xl py-4 sm:py-6 px-4 sm:px-8 text-center text-2xl sm:text-3xl md:text-5xl font-bold tracking-wider focus:outline-none focus:border-indigo-400 focus:shadow-[0_0_30px_rgba(99,102,241,0.3)] transition-all uppercase disabled:opacity-50"
                                 placeholder={`${letters.start}...${letters.end}`}
                             />
                             <button
                                 type="submit"
-                                className="absolute right-4 top-1/2 -translate-y-1/2 bg-indigo-600 text-white p-3 rounded-xl hover:bg-indigo-500 transition-colors"
+                                disabled={!opponentOnline}
+                                className="absolute right-4 top-1/2 -translate-y-1/2 bg-indigo-600 text-white p-3 rounded-xl hover:bg-indigo-500 transition-colors disabled:opacity-50"
                             >
                                 <PaperPlaneIcon />
                             </button>
@@ -316,7 +356,7 @@ export default function GameRoom({ socket, roomId, playerName, initialData }) {
                         <div className="mt-6 flex justify-center">
                             <button
                                 onClick={handleSkip}
-                                disabled={skipData.myVote}
+                                disabled={skipData.myVote || !opponentOnline}
                                 className={clsx(
                                     "text-sm font-bold py-2 px-4 rounded-full border transition-all flex items-center gap-2",
                                     skipData.myVote
@@ -342,13 +382,13 @@ export default function GameRoom({ socket, roomId, playerName, initialData }) {
                         className="text-center bg-slate-800/80 backdrop-blur-xl p-8 rounded-3xl border border-white/10 shadow-2xl"
                     >
                         <div className="text-6xl mb-4">
-                            {result.winner === playerName ? '🏆' : '💀'}
+                            {result.winner === playerName ? <TrophyIcon /> : <SkullIcon />}
                         </div>
                         <h2 className="text-4xl font-black mb-2 uppercase">
                             {result.winner === playerName ? 'Menang!' : 'Kalah!'}
                         </h2>
                         <div className="bg-slate-900/50 p-4 rounded-xl mb-8">
-                            <p className="text-slate-400 text-sm mb-1">Kata Benar</p>
+                            <p className="text-slate-400 text-sm mb-1">{result.winner === playerName ? 'Anda' : 'Lawan'} Benar</p>
                             <p className="text-3xl font-bold text-green-400 tracking-wider">
                                 {result.word}
                             </p>
@@ -359,13 +399,34 @@ export default function GameRoom({ socket, roomId, playerName, initialData }) {
 
                         <button
                             onClick={handleNextRound}
-                            className="bg-white text-slate-900 font-bold py-3 px-8 rounded-full hover:scale-105 active:scale-95 transition-transform shadow-lg hover:shadow-white/20"
+                            disabled={!opponentOnline}
+                            className="bg-white text-slate-900 font-bold py-3 px-8 rounded-full hover:scale-105 active:scale-95 transition-transform shadow-lg hover:shadow-white/20 disabled:opacity-50 disabled:scale-100"
                         >
                             Last Round? Next! ➡️
                         </button>
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            {/* HISTORY LOG */}
+            {history.length > 0 && (
+                <div className="mt-8 border-t border-slate-700/50 pt-6">
+                    <h3 className="text-slate-400 text-sm font-bold uppercase tracking-widest mb-4">Round History</h3>
+                    <div className="flex flex-wrap gap-2 justify-center">
+                        {history.slice().reverse().map((entry, idx) => (
+                            <div key={idx} className="bg-slate-800/80 px-4 py-2 rounded-lg border border-slate-700 flex items-center gap-2">
+                                <span className="text-slate-500 text-xs font-mono">#{history.length - idx}</span>
+                                <span className={clsx("text-xs font-bold px-1.5 py-0.5 rounded",
+                                    entry.winner === playerName ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
+                                )}>
+                                    {entry.winner === playerName ? 'YOU' : entry.winner}
+                                </span>
+                                <span className="font-mono font-bold text-white">{entry.word}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

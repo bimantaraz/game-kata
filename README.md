@@ -124,4 +124,4 @@ game-kata/
 
 ---
 
-Create by **Anugrah Bimantara**.
+Created by **Anugrah Bimantara**.
