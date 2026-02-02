@@ -4,6 +4,7 @@ import { Toaster, toast } from 'react-hot-toast';
 import { AnimatePresence, motion } from 'framer-motion';
 import Lobby from './components/Lobby';
 import GameRoom from './components/GameRoom';
+import GameSelection from './components/GameSelection';
 
 // Connect to backend
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || (window.location.hostname === 'localhost' ? 'http://localhost:3001' : '/');
@@ -24,7 +25,8 @@ const socket = io(SERVER_URL, {
 });
 
 function App() {
-  const [gameState, setGameState] = useState('LOBBY'); // LOBBY, WAITING, PLAYING
+  const [gameState, setGameState] = useState('SELECTION'); // SELECTION, LOBBY, WAITING, PLAYING
+  const [gameMode, setGameMode] = useState(null); // 'race' | 'lanjut'
   const [roomId, setRoomId] = useState(null);
   const [playerName, setPlayerName] = useState('');
   const [roomData, setRoomData] = useState(null);
@@ -35,7 +37,6 @@ function App() {
     socket.on('connect', () => {
       console.log('Connected to server');
       setIsConnected(true);
-      // We don't reset to LOBBY here anymore because we might be reconnecting to a session
     });
 
     socket.on('reconnect_success', ({ roomId, roomData }) => {
@@ -43,8 +44,9 @@ function App() {
       setIsConnected(true);
       setRoomId(roomId);
       setRoomData(roomData);
-      setPlayerName(roomData.players[sessionId]); // Restore my name
-      // Map server status to app state
+      setPlayerName(roomData.players[sessionId]);
+      setGameMode(roomData.gameMode || 'race');
+
       if (roomData.status === 'waiting') {
         setGameState('WAITING');
       } else {
@@ -59,11 +61,13 @@ function App() {
     });
 
     socket.on('rooms_update', (updatedRooms) => {
+      console.log('App: rooms_update received', updatedRooms);
       setRooms(updatedRooms);
     });
 
-    socket.on('joined_room', ({ roomId, role }) => {
+    socket.on('joined_room', ({ roomId, role, gameMode }) => {
       setRoomId(roomId);
+      setGameMode(gameMode);
       setGameState('WAITING');
       toast.success('Room joined! Waiting for opponent...');
     });
@@ -71,8 +75,17 @@ function App() {
     socket.on('game_start', (data) => {
       setRoomData(data);
       setRoomId(data.roomId);
+      setGameMode(data.gameMode);
       setGameState('PLAYING');
       toast.success('Game Started!');
+    });
+
+    socket.on('game_start_lanjut', (data) => {
+      setRoomData({ ...data, gameMode: 'lanjut' }); // Inject mode into data
+      setRoomId(data.roomId);
+      setGameMode('lanjut');
+      setGameState('PLAYING');
+      toast.success('Lanjut Kata Started!');
     });
 
     socket.on('player_left', () => {
@@ -88,24 +101,29 @@ function App() {
       socket.off('rooms_update');
       socket.off('joined_room');
       socket.off('game_start');
+      socket.off('game_start_lanjut');
       socket.off('player_left');
     };
   }, []);
 
-  const createRoom = (name, category) => {
+  const handleSelectMode = (mode) => {
+    setGameMode(mode);
+    setGameState('LOBBY');
+  };
+
+  const handleBackToSelection = () => {
+    setGameMode(null);
+    setGameState('SELECTION');
+  };
+
+  const createRoom = (name, category, turnDuration) => {
     setPlayerName(name);
-    socket.emit('create_room', { name, category });
+    socket.emit('create_room', { name, category, gameMode, turnDuration });
   };
 
   const joinRoom = (name, roomId) => {
     setPlayerName(name);
     socket.emit('join_room', { name, roomId });
-  };
-
-  // Legacy/Quick Match
-  const joinGame = (name, category) => {
-    setPlayerName(name);
-    socket.emit('join_game', { name, category });
   };
 
   return (
@@ -119,7 +137,6 @@ function App() {
         }
       }} />
 
-      {/* Connection Status Indicator */}
       {!isConnected && (
         <div className="fixed top-0 left-0 w-full bg-red-600/90 text-white text-center text-xs py-1 z-50 font-bold">
           🔌 DISCONNECTED - Trying to reconnect...
@@ -128,6 +145,17 @@ function App() {
 
       <div className="w-full max-w-7xl relative z-10">
         <AnimatePresence mode='wait'>
+          {gameState === 'SELECTION' && (
+            <motion.div
+              key="selection"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+            >
+              <GameSelection onSelectMode={handleSelectMode} />
+            </motion.div>
+          )}
+
           {gameState === 'LOBBY' && (
             <motion.div
               key="lobby"
@@ -136,9 +164,11 @@ function App() {
               exit={{ opacity: 0, y: -20 }}
             >
               <Lobby
-                rooms={rooms}
+                rooms={rooms.filter(r => r.gameMode === gameMode)}
+                gameMode={gameMode}
                 onCreate={createRoom}
                 onJoinRoom={joinRoom}
+                onBack={handleBackToSelection}
               />
             </motion.div>
           )}
@@ -154,6 +184,9 @@ function App() {
               <div className="animate-spin text-4xl mb-4">⏳</div>
               <h2 className="text-2xl font-bold mb-2">Waiting for Opponent...</h2>
               <p className="text-slate-300">Room ID: <span className="font-mono bg-white/10 px-2 py-1 rounded">{roomId}</span></p>
+              <div className="mt-4 text-xs font-bold uppercase tracking-widest text-indigo-400">
+                {gameMode === 'race' ? 'Tebak Kata' : 'Lanjut Kata'} Mode
+              </div>
             </motion.div>
           )}
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { toast } from 'react-hot-toast';
+import ConnectWordGame from './ConnectWordGame';
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split('');
 
@@ -34,6 +35,18 @@ const SkullIcon = () => (
 );
 
 export default function GameRoom({ socket, roomId, playerName, sessionId, initialData }) {
+    if (initialData.gameMode === 'lanjut') {
+        return (
+            <ConnectWordGame
+                socket={socket}
+                roomId={roomId}
+                playerName={playerName}
+                sessionId={sessionId}
+                initialData={initialData}
+            />
+        );
+    }
+
     const [gameStatus, setGameStatus] = useState(initialData.status || 'picking'); // Support status from reconnect
     const [letters, setLetters] = useState(initialData.curLetters || { start: null, end: null });
     const [pickerRoles, setPickerRoles] = useState(initialData.pickerRoles);

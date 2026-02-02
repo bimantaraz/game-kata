@@ -35,6 +35,8 @@ function broadcastRooms() {
                 id: id,
                 host: Object.values(room.playerNames)[0],
                 category: room.category,
+                gameMode: room.gameMode, // Added
+                turnDuration: room.turnDuration, // Added
                 players: room.players.length
             });
         }
@@ -133,7 +135,93 @@ io.on('connection', (socket) => {
     // HELPER: Get Session
     const getSession = () => sessions.get(socket.sessionId);
 
-    socket.on('create_room', ({ name, category = "General" }) => {
+    // HELPER: Start Lanjut Kata Round
+    const startLanjutRound = (room) => {
+        // Stop any existing timer
+        if (room.timer) {
+            clearTimeout(room.timer);
+            room.timer = null;
+        }
+
+        // Determine First Player (if new game) or Next Player
+        // For simplicity, let's say "start" picker or "winner" goes first, or random.
+        // Let's go with: Host starts first game, then Loser starts next? Or just alternate.
+        if (!room.currentTurn) {
+            room.currentTurn = room.players[0]; // Host starts
+        }
+
+        room.status = 'playing';
+        room.letters = { start: null, end: null };
+        room.usedWords = new Set();
+        room.lastWord = null; // Reset for new round
+        room.history = []; // Reset history for new round
+
+        // Initial Word? Or first player picks it?
+        // Let's say we provide a random starting letter or word?
+        // "Player 1 menyebutkan kata 'ular'" -> implies P1 types anything.
+        // So P1 has free reign? Or needs to start with a specific letter?
+        // Let's allow P1 to start with ANY word for now.
+
+        io.to(room.roomId).emit('game_start_lanjut', {
+            roomId: room.roomId,
+            players: room.playerNames,
+            currentTurn: room.currentTurn,
+            turnDuration: room.turnDuration,
+            lastWord: null, // First turn has no last word
+            scores: room.scores,
+            category: room.category,
+            gameMode: 'lanjut' // Added
+        });
+
+        // Start Timer
+        startTurnTimer(room);
+    };
+
+    const startTurnTimer = (room) => {
+        if (room.timer) clearTimeout(room.timer);
+
+        const turnDurationMs = (room.turnDuration || 10) * 1000;
+        const deadline = Date.now() + turnDurationMs;
+
+        io.to(room.roomId).emit('turn_update', {
+            currentTurn: room.currentTurn,
+            deadline: deadline
+        });
+
+        room.timer = setTimeout(() => {
+            handleTurnTimeout(room);
+        }, turnDurationMs);
+    };
+
+    const handleTurnTimeout = (room) => {
+        // Current turn player LOST
+        const loserId = room.currentTurn;
+        const winnerId = room.players.find(id => id !== loserId);
+
+        finishLanjutRound(room, winnerId, "Time's up!");
+    };
+
+    const finishLanjutRound = (room, winnerId, reason) => {
+        if (room.timer) clearTimeout(room.timer);
+        room.status = 'finished';
+        room.winner = room.playerNames[winnerId];
+
+        room.scores[winnerId] = (room.scores[winnerId] || 0) + 1;
+        // Reset streaks if we care, or maybe just +1 score.
+
+        io.to(room.roomId).emit('round_over_lanjut', {
+            winner: room.playerNames[winnerId],
+            winnerSessionId: winnerId,
+            reason: reason,
+            scores: room.scores
+        });
+
+        room.currentTurn = null; // Reset for next interaction
+        broadcastRooms();
+    };
+
+
+    socket.on('create_room', ({ name, category = "General", gameMode = "race", turnDuration = 10 }) => {
         const session = getSession();
         if (!session) return;
 
@@ -141,23 +229,30 @@ io.on('connection', (socket) => {
         const roomId = createRoomId();
 
         rooms.set(roomId, {
+            roomId: roomId,
             players: [socket.sessionId],
             playerNames: { [socket.sessionId]: name },
-            letters: { start: null, end: null },
+            letters: { start: null, end: null }, // For Race
             status: 'waiting',
             winner: null,
             category: category,
+            gameMode: gameMode, // 'race' | 'lanjut'
+            turnDuration: parseInt(turnDuration), // For Lanjut
             skipVotes: new Set(),
             scores: { [socket.sessionId]: 0 },
             streaks: { [socket.sessionId]: 0 },
-            history: []
+            history: [],
+            // Lanjut specifics
+            currentTurn: null,
+            lastWord: null,
+            usedWords: new Set()
         });
 
         session.roomId = roomId;
         socket.join(roomId);
 
-        socket.emit('joined_room', { roomId: roomId, role: 'host', category });
-        console.log(`${name} (Sess: ${socket.sessionId}) created room ${roomId}`);
+        socket.emit('joined_room', { roomId: roomId, role: 'host', category, gameMode });
+        console.log(`${name} (Sess: ${socket.sessionId}) created room ${roomId} [${gameMode}]`);
         broadcastRooms();
     });
 
@@ -169,34 +264,33 @@ io.on('connection', (socket) => {
         const room = rooms.get(roomId);
 
         if (room && room.status === 'waiting' && room.players.length < 2) {
-            // Check if already in (duplicate tab?)
-            if (room.players.includes(socket.sessionId)) {
-                // Already in logic handled by reconnect usually, but just in case
-                return;
-            }
+            if (room.players.includes(socket.sessionId)) return;
 
             room.players.push(socket.sessionId);
             room.playerNames[socket.sessionId] = name;
             room.scores[socket.sessionId] = 0;
             room.streaks[socket.sessionId] = 0;
             room.history = room.history || [];
-            room.status = 'picking';
 
             session.roomId = roomId;
             socket.join(roomId);
 
-            const p1 = room.players[0]; // Host SessionID
-            const p2 = room.players[1]; // Joiner SessionID
+            const p1 = room.players[0];
+            const p2 = room.players[1];
 
-            io.to(roomId).emit('game_start', {
-                roomId: roomId,
-                players: room.playerNames,
-                pickerRoles: {
-                    start: p1,
-                    end: p2
-                },
-                category: room.category
-            });
+            if (room.gameMode === 'race') {
+                room.status = 'picking';
+                io.to(roomId).emit('game_start', {
+                    roomId: roomId,
+                    players: room.playerNames,
+                    pickerRoles: { start: p1, end: p2 },
+                    category: room.category,
+                    gameMode: 'race'
+                });
+            } else if (room.gameMode === 'lanjut') {
+                startLanjutRound(room);
+            }
+
             console.log(`${name} joined room ${roomId}`);
             broadcastRooms();
         } else {
@@ -208,7 +302,7 @@ io.on('connection', (socket) => {
         const session = getSession();
         if (!session || !session.roomId) return;
         const room = rooms.get(session.roomId);
-        if (!room) return;
+        if (!room || room.gameMode !== 'race') return; // Gatekeep
 
         // Save the letter
         room.letters[type] = letter;
@@ -236,12 +330,13 @@ io.on('connection', (socket) => {
         socket.to(session.roomId).emit('opponent_typing', { isTyping });
     });
 
+    // RACE MODE SUBMIT
     socket.on('submit_word', async ({ word }) => {
         const session = getSession();
         if (!session || !session.roomId) return;
         const room = rooms.get(session.roomId);
 
-        if (!room || room.status !== 'playing') return;
+        if (!room || room.status !== 'playing' || room.gameMode !== 'race') return;
 
         // Validate
         const validation = await validateWord(word, room.letters.start, room.letters.end, room.category);
@@ -277,12 +372,69 @@ io.on('connection', (socket) => {
                 streaks: room.streaks,
                 pointsEarned: points,
                 history: room.history,
-                winnerSessionId: winnerId // Send ID so client knows who won
+                winnerSessionId: winnerId
             });
             broadcastRooms();
         } else {
             socket.emit('validation_fail', { reason: validation.reason });
         }
+    });
+
+    // LANJUT KATA SUBMIT
+    socket.on('submit_word_lanjut', async ({ word }) => {
+        const session = getSession();
+        if (!session || !session.roomId) return;
+        const room = rooms.get(session.roomId);
+
+        // Basic checks
+        if (!room || room.status !== 'playing' || room.gameMode !== 'lanjut') return;
+        if (room.currentTurn !== socket.sessionId) {
+            return socket.emit('validation_fail', { reason: "Not your turn!" });
+        }
+
+        const normalizedWord = word.trim().toUpperCase();
+
+        // 1. Check if word starts with last letter (if not first turn)
+        if (room.lastWord) {
+            const requiredChar = room.lastWord.slice(-1).toUpperCase();
+            if (!normalizedWord.startsWith(requiredChar)) {
+                return socket.emit('validation_fail', { reason: `Must start with '${requiredChar}'!` });
+            }
+        }
+
+        // 2. Check duplicates
+        if (room.usedWords.has(normalizedWord)) {
+            return socket.emit('validation_fail', { reason: "Word already used!" });
+        }
+
+        // 3. AI/Dictionary Validation
+        // Using same validateWord but we ignore 'end' char restriction (pass null)
+        // If it's the first turn (no lastWord), we also ignore the start char restriction (pass null)
+        const startChar = room.lastWord ? normalizedWord[0] : null;
+        const validation = await validateWord(normalizedWord, startChar, null, room.category);
+
+        if (!validation.isValid) {
+            return socket.emit('validation_fail', { reason: validation.reason });
+        }
+
+        // --- SUCCESS ---
+        if (room.timer) clearTimeout(room.timer);
+
+        room.usedWords.add(normalizedWord);
+        room.lastWord = normalizedWord;
+        room.history.push({ word: normalizedWord, player: room.playerNames[socket.sessionId] });
+
+        // Switch turn
+        const nextPlayer = room.players.find(id => id !== socket.sessionId);
+        room.currentTurn = nextPlayer;
+
+        io.to(room.roomId).emit('word_accepted', {
+            word: normalizedWord,
+            player: socket.sessionId,
+            history: room.history
+        });
+
+        startTurnTimer(room);
     });
 
     socket.on('request_next_round', () => {
@@ -291,27 +443,33 @@ io.on('connection', (socket) => {
         const room = rooms.get(session.roomId);
         if (!room) return;
 
-        room.letters = { start: null, end: null };
-        room.status = 'picking';
-        room.winner = null;
-        room.skipVotes.clear();
+        if (room.gameMode === 'race') {
+            room.letters = { start: null, end: null };
+            room.status = 'picking';
+            room.winner = null;
+            room.skipVotes.clear();
 
-        // Swap roles
-        const p1 = room.players[0];
-        const p2 = room.players[1];
-        const roundsPlayed = room.history.length;
-        const shouldSwap = Math.floor(roundsPlayed / 10) % 2 === 1;
+            // Swap roles
+            const p1 = room.players[0];
+            const p2 = room.players[1];
+            const roundsPlayed = room.history.length;
+            const shouldSwap = Math.floor(roundsPlayed / 10) % 2 === 1;
 
-        io.to(session.roomId).emit('next_round_started', {
-            roomId: session.roomId,
-            players: room.playerNames,
-            pickerRoles: {
-                start: shouldSwap ? p2 : p1,
-                end: shouldSwap ? p1 : p2
-            },
-            scores: room.scores,
-            streaks: room.streaks
-        });
+            io.to(session.roomId).emit('next_round_started', {
+                roomId: session.roomId,
+                players: room.playerNames,
+                pickerRoles: {
+                    start: shouldSwap ? p2 : p1,
+                    end: shouldSwap ? p1 : p2
+                },
+                scores: room.scores,
+                streaks: room.streaks
+            });
+        } else if (room.gameMode === 'lanjut') {
+            // For Lanjut, next round means restarting the loop after someone lost
+            startLanjutRound(room);
+        }
+
         broadcastRooms();
     });
 
@@ -320,6 +478,9 @@ io.on('connection', (socket) => {
         if (!session || !session.roomId) return;
         const room = rooms.get(session.roomId);
         if (!room || room.status !== 'playing') return;
+
+        // Skip logic only for Race 
+        if (room.gameMode !== 'race') return;
 
         room.skipVotes.add(socket.sessionId);
 

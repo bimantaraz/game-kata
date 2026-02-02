@@ -9,8 +9,8 @@ async function validateWord(word, startLetter, endLetter, category = "General") 
       Check if the word "${word}" is valid in INDONESIAN or ENGLISH.
       
       Constraints:
-      1. MUST start with letter '${startLetter}'.
-      2. MUST end with letter '${endLetter}'.
+      ${startLetter ? `1. MUST start with letter '${startLetter}'.` : ''}
+      ${endLetter ? `2. MUST end with letter '${endLetter}'.` : ''}
       3. MUST be a valid word found in a standard dictionary.
       4. MUST fit the category: "${category}" (General means any valid word).
       5. NO names of people, cities, or brands unless commonly treated as generic nouns.

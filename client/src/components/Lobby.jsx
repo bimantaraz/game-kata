@@ -3,19 +3,20 @@ import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { toast } from 'react-hot-toast';
 
-export default function Lobby({ rooms = [], onCreate, onJoinRoom }) {
+export default function Lobby({ rooms = [], gameMode, onCreate, onJoinRoom, onBack }) {
     const [name, setName] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('General');
+    const [turnDuration, setTurnDuration] = useState(10);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-    const [joiningRoomId, setJoiningRoomId] = useState(null); // If not null, showing join modal for this room
+    const [joiningRoomId, setJoiningRoomId] = useState(null);
 
     const CATEGORIES = ["General", "Noun (Kata Benda)", "Verb (Kata Kerja)", "Adjective (Sifat)", "Animal (Hewan)", "Food (Makanan)", "Country (Negara)"];
 
     const handleCreate = (e) => {
         e.preventDefault();
         if (!name.trim()) return toast.error('Name is required!');
-        onCreate(name, selectedCategory);
+        onCreate(name, selectedCategory, turnDuration);
     };
 
     const handleJoin = (e) => {
@@ -27,15 +28,23 @@ export default function Lobby({ rooms = [], onCreate, onJoinRoom }) {
     return (
         <div className="w-full max-w-5xl mx-auto p-4">
             {/* Header & Create Button */}
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4 md:gap-0 mb-8 bg-white/5 backdrop-blur-md p-6 rounded-3xl border border-white/5 shadow-2xl text-center md:text-left">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4 md:gap-0 mb-8 bg-white/5 backdrop-blur-md p-6 rounded-3xl border border-white/5 shadow-2xl text-center md:text-left relative">
+                <button
+                    onClick={onBack}
+                    className="absolute top-4 left-4 md:static md:mr-6 text-slate-400 hover:text-white transition-colors flex items-center gap-1"
+                >
+                    ← Back
+                </button>
+
                 <motion.div
                     initial={{ x: -20, opacity: 0 }}
                     animate={{ x: 0, opacity: 1 }}
+                    className="flex-1"
                 >
-                    <h1 className="text-4xl font-black bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-400">
-                        GAME KATA
+                    <h1 className="text-4xl font-black bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-400 uppercase">
+                        {gameMode === 'race' ? 'Tebak Kata' : 'Lanjut Kata'}
                     </h1>
-                    <p className="text-slate-400">Multiplayer Word Duel</p>
+                    <p className="text-slate-400">{gameMode === 'race' ? 'Race against time!' : 'Chain reaction duel!'}</p>
                 </motion.div>
 
                 <motion.button
@@ -59,7 +68,7 @@ export default function Lobby({ rooms = [], onCreate, onJoinRoom }) {
                         className="col-span-full text-center py-20 text-slate-500 border-2 border-dashed border-slate-700 rounded-3xl"
                     >
                         <div className="text-6xl mb-4">💤</div>
-                        <p className="text-xl">No rooms available.</p>
+                        <p className="text-xl">No rooms available for {gameMode}.</p>
                         <p className="text-sm">Be the first to create one!</p>
                     </motion.div>
                 ) : (
@@ -81,6 +90,12 @@ export default function Lobby({ rooms = [], onCreate, onJoinRoom }) {
                             <h3 className="text-xl font-bold text-white mb-2 group-hover:text-indigo-300 transition-colors">
                                 {room.host}'s Room
                             </h3>
+
+                            {gameMode === 'lanjut' && room.turnDuration && (
+                                <div className="text-xs text-slate-400 mb-4 bg-slate-900/50 inline-block px-2 py-1 rounded">
+                                    ⏱️ {room.turnDuration}s Turn
+                                </div>
+                            )}
 
                             <div className="flex justify-between items-center mt-6">
                                 <span className="text-slate-400 text-sm flex items-center gap-1">
@@ -111,7 +126,7 @@ export default function Lobby({ rooms = [], onCreate, onJoinRoom }) {
                             initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
                             className="bg-slate-800 border border-slate-700 p-8 rounded-3xl w-full max-w-md relative z-10 shadow-2xl"
                         >
-                            <h2 className="text-3xl font-bold mb-6 text-center">Create Room</h2>
+                            <h2 className="text-3xl font-bold mb-6 text-center">Create {gameMode === 'race' ? 'Race' : 'Duel'} Room</h2>
                             <form onSubmit={handleCreate} className="space-y-4">
                                 <div>
                                     <label className="block text-sm text-slate-400 mb-1">Your Name</label>
@@ -126,6 +141,7 @@ export default function Lobby({ rooms = [], onCreate, onJoinRoom }) {
                                     />
                                 </div>
                                 <div>
+                                    <label className="block text-sm text-slate-400 mb-1">Category</label>
                                     <div className="relative">
                                         <button
                                             type="button"
@@ -167,6 +183,29 @@ export default function Lobby({ rooms = [], onCreate, onJoinRoom }) {
                                         </AnimatePresence>
                                     </div>
                                 </div>
+
+                                {gameMode === 'lanjut' && (
+                                    <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700/50">
+                                        <label className="block text-sm text-slate-400 mb-2 flex justify-between">
+                                            <span>Turn Timer</span>
+                                            <span className="font-bold text-white">{turnDuration}s</span>
+                                        </label>
+                                        <input
+                                            type="range"
+                                            min="5"
+                                            max="30"
+                                            step="5"
+                                            value={turnDuration}
+                                            onChange={(e) => setTurnDuration(parseInt(e.target.value))}
+                                            className="w-full accent-indigo-500"
+                                        />
+                                        <div className="flex justify-between text-xs text-slate-500 mt-1">
+                                            <span>5s</span>
+                                            <span>30s</span>
+                                        </div>
+                                    </div>
+                                )}
+
                                 <button
                                     disabled={!name.trim()}
                                     type="submit"
