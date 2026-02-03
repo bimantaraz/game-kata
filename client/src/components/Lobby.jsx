@@ -7,6 +7,7 @@ export default function Lobby({ rooms = [], gameMode, onCreate, onJoinRoom, onBa
     const [name, setName] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('General');
     const [turnDuration, setTurnDuration] = useState(10);
+    const [keepHistory, setKeepHistory] = useState(false); // Added State
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [joiningRoomId, setJoiningRoomId] = useState(null);
@@ -16,11 +17,12 @@ export default function Lobby({ rooms = [], gameMode, onCreate, onJoinRoom, onBa
     const handleCreate = (e) => {
         e.preventDefault();
         if (!name.trim()) return toast.error('Name is required!');
-        onCreate(name, selectedCategory, turnDuration);
+        onCreate(name, selectedCategory, turnDuration, keepHistory);
     };
 
     const handleJoin = (e) => {
         e.preventDefault();
+        console.log("Join clicked", name, joiningRoomId);
         if (!name.trim()) return toast.error('Name is required!');
         onJoinRoom(name, joiningRoomId);
     };
@@ -185,23 +187,39 @@ export default function Lobby({ rooms = [], gameMode, onCreate, onJoinRoom, onBa
                                 </div>
 
                                 {gameMode === 'lanjut' && (
-                                    <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700/50">
-                                        <label className="block text-sm text-slate-400 mb-2 flex justify-between">
-                                            <span>Turn Timer</span>
-                                            <span className="font-bold text-white">{turnDuration}s</span>
-                                        </label>
-                                        <input
-                                            type="range"
-                                            min="5"
-                                            max="30"
-                                            step="5"
-                                            value={turnDuration}
-                                            onChange={(e) => setTurnDuration(parseInt(e.target.value))}
-                                            className="w-full accent-indigo-500"
-                                        />
-                                        <div className="flex justify-between text-xs text-slate-500 mt-1">
-                                            <span>5s</span>
-                                            <span>30s</span>
+                                    <div className="space-y-3">
+                                        <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700/50">
+                                            <label className="block text-sm text-slate-400 mb-2 flex justify-between">
+                                                <span>Turn Timer</span>
+                                                <span className="font-bold text-white">{turnDuration}s</span>
+                                            </label>
+                                            <input
+                                                type="range"
+                                                min="5"
+                                                max="60"
+                                                step="5"
+                                                value={turnDuration}
+                                                onChange={(e) => setTurnDuration(parseInt(e.target.value))}
+                                                className="w-full accent-indigo-500"
+                                            />
+                                            <div className="flex justify-between text-xs text-slate-500 mt-1">
+                                                <span>5s</span>
+                                                <span>60s</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-3 bg-slate-900/50 p-4 rounded-xl border border-slate-700/50">
+                                            <input
+                                                type="checkbox"
+                                                id="keepHistory"
+                                                checked={keepHistory}
+                                                onChange={(e) => setKeepHistory(e.target.checked)}
+                                                className="w-5 h-5 accent-indigo-500 rounded focus:ring-indigo-500 focus:ring-2 bg-slate-700 border-slate-600"
+                                            />
+                                            <label htmlFor="keepHistory" className="text-sm text-slate-300 cursor-pointer select-none">
+                                                Keep History on Rematch
+                                                <div className="text-xs text-slate-500 mt-0.5">Don't reset used words in new rounds</div>
+                                            </label>
                                         </div>
                                     </div>
                                 )}

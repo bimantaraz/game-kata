@@ -116,9 +116,9 @@ function App() {
     setGameState('SELECTION');
   };
 
-  const createRoom = (name, category, turnDuration) => {
+  const createRoom = (name, category, turnDuration, keepHistory) => {
     setPlayerName(name);
-    socket.emit('create_room', { name, category, gameMode, turnDuration });
+    socket.emit('create_room', { name, category, gameMode, turnDuration, keepHistory });
   };
 
   const joinRoom = (name, roomId) => {

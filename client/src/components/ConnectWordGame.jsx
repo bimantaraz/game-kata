@@ -3,6 +3,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { toast } from 'react-hot-toast';
 
+function HeartIcon({ filled }) {
+    return (
+        <svg className={clsx("w-6 h-6 transition-colors duration-300", filled ? "text-red-500 fill-red-500" : "text-slate-800 fill-slate-800")} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={filled ? 0 : 2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+        </svg>
+    );
+}
+
 export default function ConnectWordGame({ socket, roomId, playerName, sessionId, initialData }) {
     const [word, setWord] = useState('');
     const [currentTurn, setCurrentTurn] = useState(initialData.currentTurn);
@@ -11,10 +19,12 @@ export default function ConnectWordGame({ socket, roomId, playerName, sessionId,
     const [lastWord, setLastWord] = useState(initialData.lastWord);
     const [history, setHistory] = useState(initialData.history || []);
     const [scores, setScores] = useState(initialData.scores || { [sessionId]: 0 });
+    const [lives, setLives] = useState(initialData.lives || {}); // Lives State
     const [gameStatus, setGameStatus] = useState(initialData.status || 'playing');
     const [result, setResult] = useState(null);
 
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [shake, setShake] = useState(false); // For damage effect
 
     const inputRef = useRef(null);
     const timerRef = useRef(null);
@@ -55,17 +65,30 @@ export default function ConnectWordGame({ socket, roomId, playerName, sessionId,
             }
         });
 
-        socket.on('word_accepted', ({ word, player, history }) => {
+        socket.on('word_accepted', ({ word, player, history, scores, pointsAdded }) => {
             setLastWord(word);
             setHistory(history);
-            setWord(''); // Clear input
-            setIsSubmitting(false); // Enable input again
-            if (player === sessionId) toast.success('Nice word!');
+            setScores(scores); // Sync scores
+            setWord('');
+            setIsSubmitting(false);
+
+            if (player === sessionId) {
+                toast.success(`+${pointsAdded} Pts!`);
+            }
+        });
+
+        socket.on('damage_taken', ({ player, lives, reason }) => {
+            setLives(lives);
+            if (player === sessionId) {
+                setShake(true);
+                setTimeout(() => setShake(false), 500);
+                toast.error(`💔 Ouch! ${reason}`);
+            }
         });
 
         socket.on('validation_fail', ({ reason }) => {
             toast.error(reason);
-            setIsSubmitting(false); // Enable input on fail
+            setIsSubmitting(false);
         });
 
         socket.on('round_over_lanjut', (data) => {
@@ -77,19 +100,20 @@ export default function ConnectWordGame({ socket, roomId, playerName, sessionId,
         });
 
         socket.on('game_start_lanjut', (data) => {
-            // Reset
             setResult(null);
             setGameStatus('playing');
             setCurrentTurn(data.currentTurn);
             setTimerDeadline(null);
             setLastWord(data.lastWord);
             setHistory([]);
+            setLives(data.lives); // Sync lives
             setIsSubmitting(false);
         });
 
         return () => {
             socket.off('turn_update');
             socket.off('word_accepted');
+            socket.off('damage_taken');
             socket.off('validation_fail');
             socket.off('round_over_lanjut');
             socket.off('game_start_lanjut');
@@ -110,32 +134,63 @@ export default function ConnectWordGame({ socket, roomId, playerName, sessionId,
     };
 
     const myScore = scores[sessionId] || 0;
+    const myLives = lives[sessionId] !== undefined ? lives[sessionId] : 3;
     const opponentId = Object.keys(scores).find(id => id !== sessionId);
     const opponentScore = opponentId ? scores[opponentId] : 0;
+    const opponentLives = opponentId && lives[opponentId] !== undefined ? lives[opponentId] : 3;
     const opponentName = Object.values(initialData.players).find(n => n !== playerName);
 
     // Required Start Letter
     const requiredStartChar = lastWord ? lastWord.slice(-1).toUpperCase() : null;
 
+    // Timer Progress
+    // Logic: We have timeLeft (seconds). Assuming turnDuration is 10s (default).
+    // We should ideally get turnDuration from props/initialData to calculate percentage.
+    // Fallback to 10 if missing.
+    const maxTime = initialData.turnDuration || 10;
+    const timeProgress = (timeLeft / maxTime) * 100;
+
     return (
-        <div className="w-full max-w-4xl mx-auto">
-            {/* Scores */}
-            <div className="flex justify-between items-center bg-white/5 backdrop-blur-md p-4 rounded-xl mb-6 border border-white/5">
-                <div className="flex flex-col items-start">
-                    <span className="text-xs text-slate-400 uppercase tracking-widest">You</span>
+        <div className={clsx("w-full max-w-4xl mx-auto transition-transform", shake ? "translate-x-2" : "")}>
+            {/* Scores & Stats */}
+            <div className="flex justify-between items-center bg-white/5 backdrop-blur-md p-4 rounded-xl mb-6 border border-white/5 shadow-lg">
+                {/* Me */}
+                <div className="flex flex-col items-start gap-1">
+                    <span className="text-xs text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                        You
+                        <div className="flex">
+                            {[...Array(3)].map((_, i) => <HeartIcon key={i} filled={i < myLives} />)}
+                        </div>
+                    </span>
                     <span className="text-xl font-bold text-white">{playerName}</span>
-                    <span className="text-2xl font-black text-indigo-400">{myScore}</span>
+                    <span className="text-2xl font-black text-indigo-400 drop-shadow-lg">{myScore} pts</span>
                 </div>
-                <div className="bg-slate-800/50 px-4 py-2 rounded-lg border border-slate-700">
-                    <div className="text-xs text-slate-400 uppercase text-center mb-1">Timer</div>
-                    <div className={clsx("text-3xl font-black font-mono text-center", timeLeft <= 3 ? "text-red-500 animate-pulse" : "text-white")}>
-                        {timeLeft}s
+
+                {/* Timer Bar */}
+                <div className="flex-1 mx-8">
+                    <div className="text-xs text-slate-400 uppercase text-center mb-2 tracking-widest">{timeLeft}s remaining</div>
+                    <div className="h-4 bg-slate-800 rounded-full overflow-hidden border border-slate-700 relative">
+                        <motion.div
+                            className={clsx("h-full absolute top-0 left-0",
+                                timeLeft <= 3 ? "bg-red-500" : timeLeft <= 6 ? "bg-amber-400" : "bg-emerald-500"
+                            )}
+                            initial={{ width: "100%" }}
+                            animate={{ width: `${timeProgress}%` }}
+                            transition={{ ease: "linear", duration: 0.5 }}
+                        />
                     </div>
                 </div>
-                <div className="flex flex-col items-end">
-                    <span className="text-xs text-slate-400 uppercase tracking-widest">Opponent</span>
+
+                {/* Opponent */}
+                <div className="flex flex-col items-end gap-1">
+                    <span className="text-xs text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                        <div className="flex">
+                            {[...Array(3)].map((_, i) => <HeartIcon key={i} filled={i < opponentLives} />)}
+                        </div>
+                        Opponent
+                    </span>
                     <span className="text-xl font-bold text-white">{opponentName}</span>
-                    <span className="text-2xl font-black text-slate-400">{opponentScore}</span>
+                    <span className="text-2xl font-black text-slate-400">{opponentScore} pts</span>
                 </div>
             </div>
 

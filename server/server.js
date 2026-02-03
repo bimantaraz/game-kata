@@ -136,7 +136,7 @@ io.on('connection', (socket) => {
     const getSession = () => sessions.get(socket.sessionId);
 
     // HELPER: Start Lanjut Kata Round
-    const startLanjutRound = (room) => {
+    const startLanjutRound = (room, keepHistory = false) => {
         // Stop any existing timer
         if (room.timer) {
             clearTimeout(room.timer);
@@ -150,11 +150,27 @@ io.on('connection', (socket) => {
             room.currentTurn = room.players[0]; // Host starts
         }
 
+        // Ensure lives initialized if not present (for joining 2nd player)
+        room.players.forEach(pid => {
+            if (room.lives[pid] === undefined) room.lives[pid] = 3;
+        });
+
+        // Reset Lives for Rematch
+        if (keepHistory) {
+            room.players.forEach(pid => room.lives[pid] = 3);
+        }
+
         room.status = 'playing';
         room.letters = { start: null, end: null };
-        room.usedWords = new Set();
-        room.lastWord = null; // Reset for new round
-        room.history = []; // Reset history for new round
+
+        if (!keepHistory) {
+            room.usedWords = new Set();
+            room.lastWord = null; // Reset for new round
+            room.history = []; // Reset history for new round
+        } else {
+            // Rematch: Reset lastWord for fresh start, but keep usedWords logic
+            room.lastWord = null;
+        }
 
         // Initial Word? Or first player picks it?
         // Let's say we provide a random starting letter or word?
@@ -170,6 +186,7 @@ io.on('connection', (socket) => {
             lastWord: null, // First turn has no last word
             scores: room.scores,
             category: room.category,
+            lives: room.lives, // Send Lives
             gameMode: 'lanjut' // Added
         });
 
@@ -194,11 +211,26 @@ io.on('connection', (socket) => {
     };
 
     const handleTurnTimeout = (room) => {
-        // Current turn player LOST
+        // Current turn player takes damage
         const loserId = room.currentTurn;
-        const winnerId = room.players.find(id => id !== loserId);
+        room.lives[loserId] = (room.lives[loserId] || 0) - 1;
 
-        finishLanjutRound(room, winnerId, "Time's up!");
+        if (room.lives[loserId] <= 0) {
+            const winnerId = room.players.find(id => id !== loserId);
+            finishLanjutRound(room, winnerId, "Opponent ran out of lives!");
+        } else {
+            // Just take damage and switch turn
+            const nextPlayer = room.players.find(id => id !== loserId);
+            room.currentTurn = nextPlayer;
+
+            io.to(room.roomId).emit('damage_taken', {
+                player: loserId,
+                lives: room.lives,
+                reason: "Time's up!"
+            });
+
+            startTurnTimer(room);
+        }
     };
 
     const finishLanjutRound = (room, winnerId, reason) => {
@@ -221,7 +253,7 @@ io.on('connection', (socket) => {
     };
 
 
-    socket.on('create_room', ({ name, category = "General", gameMode = "race", turnDuration = 10 }) => {
+    socket.on('create_room', ({ name, category = "General", gameMode = "race", turnDuration = 10, keepHistory = false }) => {
         const session = getSession();
         if (!session) return;
 
@@ -237,9 +269,11 @@ io.on('connection', (socket) => {
             winner: null,
             category: category,
             gameMode: gameMode, // 'race' | 'lanjut'
-            turnDuration: parseInt(turnDuration), // For Lanjut
+            turnDuration: parseInt(turnDuration),
+            keepHistory: keepHistory, // Store setting // For Lanjut
             skipVotes: new Set(),
             scores: { [socket.sessionId]: 0 },
+            lives: { [socket.sessionId]: 3 }, // Init Lives
             streaks: { [socket.sessionId]: 0 },
             history: [],
             // Lanjut specifics
@@ -422,7 +456,12 @@ io.on('connection', (socket) => {
 
         room.usedWords.add(normalizedWord);
         room.lastWord = normalizedWord;
+        room.lastWord = normalizedWord;
         room.history.push({ word: normalizedWord, player: room.playerNames[socket.sessionId] });
+
+        // Add Points based on length
+        const points = normalizedWord.length;
+        room.scores[socket.sessionId] = (room.scores[socket.sessionId] || 0) + points;
 
         // Switch turn
         const nextPlayer = room.players.find(id => id !== socket.sessionId);
@@ -431,7 +470,9 @@ io.on('connection', (socket) => {
         io.to(room.roomId).emit('word_accepted', {
             word: normalizedWord,
             player: socket.sessionId,
-            history: room.history
+            history: room.history,
+            scores: room.scores, // Update scores client-side
+            pointsAdded: points
         });
 
         startTurnTimer(room);
@@ -467,7 +508,9 @@ io.on('connection', (socket) => {
             });
         } else if (room.gameMode === 'lanjut') {
             // For Lanjut, next round means restarting the loop after someone lost
-            startLanjutRound(room);
+            // Rematch logic: Keep History (Used Words) but Reset Lives
+            // Rematch logic: Use room setting
+            startLanjutRound(room, room.keepHistory);
         }
 
         broadcastRooms();
